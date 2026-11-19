@@ -29,6 +29,21 @@ Kotlin · AGP 8.6 · Gradle 8.9 · JDK 21 · Shizuku API 13.1.5 · 反射调用�
 
 - [项目规划（v3 决策冻结版）](PLAN.md) —— 需求锁定卡、技术选型权衡、架构、Wave 计划、验证方案、风险
 - [技术栈确认清单](TECH_STACK.md) —— 语言/构建/SDK/依赖版本锁定、隐藏 API 调用方式、组件架构、测试栈
+- [云端测试报告](TEST_REPORT.md) —— Android 10 模拟器实测结果、修复的 6 个缺陷、未闭环项
+
+## 测试
+
+| 层级 | 用例数 | 结果 |
+|---|---|---|
+| JVM 单元测试（JUnit + Robolectric） | 23 | ✅ |
+| 仪器测试（Android 10 运行时） | 7 | ✅ |
+
+```bash
+./gradlew :app:testDebugUnitTest          # 单元测试
+./gradlew :app:connectedDebugAndroidTest  # 仪器测试（需连接设备/模拟器）
+```
+
+实测结论：Shizuku 与降级两条路径都能真正改变系统方向并跨 App 保持；解锁精确还原；进程 PSS 22.6 MB、零常驻服务。
 
 ## 已知限制
 
