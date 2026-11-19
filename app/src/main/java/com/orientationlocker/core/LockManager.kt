@@ -39,12 +39,28 @@ class LockManager(context: Context) {
         if (!Rotations.isValid(rotation)) return Outcome.Failed("非法方向值")
 
         // 1. 首次锁定时快照用户原始自动旋转开关
-        if (!repo.hasAutoRotateSnapshot) {
+        //    （必须在真正写入前读取：降级路径会顺手关掉自动旋转）
+        val tookSnapshot = !repo.hasAutoRotateSnapshot
+        if (tookSnapshot) {
             repo.originalAutoRotate = FallbackController.readAutoRotate(appContext)
+            repo.originalUserRotation = FallbackController.readUserRotation(appContext)
             repo.hasAutoRotateSnapshot = true
         }
 
-        // 2. 优先 Shizuku
+        // 2. 依次尝试 Shizuku → 降级
+        val outcome = applyLock(rotation)
+
+        // 3. 所有路径都失败时回滚快照：
+        //    否则用户从未成功锁定，后续 unlock 却会拿一个"并不存在的原值"去改系统开关。
+        if (outcome !is Outcome.Success && tookSnapshot) {
+            repo.clearSnapshot()
+        }
+        return outcome
+    }
+
+    /** 按优先级尝试各条生效路径。 */
+    private fun applyLock(rotation: Int): Outcome {
+        // 优先 Shizuku
         if (ShizukuHelper.isReady()) {
             when (val r = RotationController.freezeRotation(rotation)) {
                 is RotationController.Result.Success -> {
@@ -63,7 +79,7 @@ class LockManager(context: Context) {
             }
         }
 
-        // 3. 降级到 WRITE_SETTINGS
+        // 降级到 WRITE_SETTINGS
         if (applyFallback(rotation)) {
             return Outcome.Success(LockStateRepository.Mode.FALLBACK)
         }
@@ -88,6 +104,8 @@ class LockManager(context: Context) {
         // 2. 若上次走的是降级路径，需要把自动旋转开关还原
         if (previousMode == LockStateRepository.Mode.FALLBACK || repo.hasAutoRotateSnapshot) {
             if (FallbackController.canWrite(appContext)) {
+                // 先还原 USER_ROTATION，再开自动旋转：顺序反了会在过渡瞬间闪一下错误方向
+                FallbackController.restoreUserRotation(appContext, repo.originalUserRotation)
                 FallbackController.restoreAutoRotate(appContext, repo.originalAutoRotate)
             }
         }
@@ -113,6 +131,12 @@ class LockManager(context: Context) {
         if (!repo.isLocked) return false
         val rotation = repo.lockedRotation
         if (!Rotations.isValid(rotation)) return false
+
+        // 已在目标状态就不重复写系统设置：MainActivity 每次 onResume 都会调这里，
+        // 无谓写入既费电也会和用户手动调整打架。
+        val alreadyApplied = FallbackController.readUserRotation(appContext) == rotation &&
+            FallbackController.readAutoRotate(appContext) == 0
+        if (alreadyApplied && !ShizukuHelper.isReady()) return true
 
         if (ShizukuHelper.isReady()) {
             val r = RotationController.freezeRotation(rotation)
