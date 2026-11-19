@@ -23,6 +23,8 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -70,6 +72,13 @@ android {
             "META-INF/DEPENDENCIES"
         )
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -84,4 +93,11 @@ dependencies {
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:4.3")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core:1.6.1")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
 }
