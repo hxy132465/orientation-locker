@@ -26,7 +26,9 @@ class BootRestoreReceiver : BroadcastReceiver() {
             return
         }
 
-        val pending = goAsync()
+        // 显式声明为可空：goAsync() 在少量运行环境（如部分测试/无调度器场景）可能返回 null，
+        // 不能让 finally 里的 finish() 把"恢复失败"变成"广播处理崩溃"。
+        val pending: PendingResult? = goAsync()
         try {
             val manager = LockManager(context.applicationContext)
             if (!manager.isLocked()) return
@@ -40,7 +42,7 @@ class BootRestoreReceiver : BroadcastReceiver() {
         } catch (t: Throwable) {
             Log.w(TAG, "开机恢复失败", t)
         } finally {
-            pending.finish()
+            pending?.finish()
         }
     }
 
