@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.orientationlocker.R
 import com.orientationlocker.core.FallbackController
 import com.orientationlocker.core.LockManager
+import com.orientationlocker.core.LockStateRepository
 import com.orientationlocker.core.Rotations
 import com.orientationlocker.shizuku.ShizukuHelper
 import java.util.concurrent.Executors
@@ -46,6 +47,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        // 入口侧兜底：开机广播在慢速冷启动场景下可能错过（进程启动超过广播超时）。
+        // 用户主动打开 App 时补一次恢复，避免"显示已锁定但系统方向没生效"的割裂状态。
+        executor.execute {
+            val restored = LockManager(this).restoreIfNeeded()
+            if (restored) runOnUiThread { refreshStatus() }
+        }
     }
 
     private fun buildUi() {
@@ -139,10 +146,13 @@ class MainActivity : AppCompatActivity() {
         val canWrite = FallbackController.canWrite(this)
         val manager = LockManager(this)
 
-        val modeLabel = when {
-            shizukuReady -> getString(R.string.mode_shizuku)
-            canWrite -> getString(R.string.mode_fallback)
-            else -> getString(R.string.mode_none)
+        // 未锁定时没有"生效路径"，显示 — 避免误导为当前已在用某条通道
+        val modeLabel = if (!manager.isLocked()) {
+            "—"
+        } else when (manager.activeMode()) {
+            LockStateRepository.Mode.SHIZUKU -> getString(R.string.mode_shizuku)
+            LockStateRepository.Mode.FALLBACK -> getString(R.string.mode_fallback)
+            LockStateRepository.Mode.NONE -> getString(R.string.mode_none)
         }
         val lockLabel = if (manager.isLocked()) {
             getString(R.string.status_locked, labelOf(manager.currentRotation()))
