@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">屏幕方向锁定</string>
+    <string name="app_subtitle">全局锁定设备屏幕方向 · 低占用 · 基于 Shizuku</string>
+
+    <string name="tile_label">方向锁定</string>
+
+    <!-- 方向 -->
+    <string name="orientation_portrait">竖屏</string>
+    <string name="orientation_landscape">横屏</string>
+    <string name="orientation_reverse_portrait">反向竖屏</string>
+    <string name="orientation_reverse_landscape">反向横屏</string>
+    <string name="orientation_auto">自动旋转（解锁）</string>
+
+    <!-- 面板 -->
+    <string name="picker_title">选择锁定方向</string>
+
+    <!-- 操作 -->
+    <string name="action_shizuku">激活 Shizuku</string>
+    <string name="action_install_shizuku">安装 / 打开 Shizuku</string>
+    <string name="action_request_shizuku">申请 Shizuku 授权</string>
+    <string name="action_shizuku_ready">Shizuku 已就绪</string>
+    <string name="action_write_settings">授予「修改系统设置」权限（降级方案）</string>
+    <string name="action_unlock">解除锁定（恢复自动旋转）</string>
+
+    <string name="section_quick_lock">快捷锁定</string>
+
+    <!-- 状态 -->
+    <string name="status_shizuku">Shizuku 服务：%1$s（版本 %2$s）</string>
+    <string name="status_permission">Shizuku 授权：%1$s</string>
+    <string name="status_write_settings">修改系统设置：%1$s</string>
+    <string name="status_current">当前状态：%1$s</string>
+    <string name="status_mode">生效路径：%1$s</string>
+    <string name="status_locked">已锁定 · %1$s</string>
+    <string name="status_unlocked">未锁定（自动旋转）</string>
+
+    <string name="mode_shizuku">Shizuku（系统级，可覆盖顽固 App）</string>
+    <string name="mode_fallback">系统设置降级</string>
+    <string name="mode_none">无可用路径</string>
+
+    <!-- 提示 -->
+    <string name="toast_locked">已锁定方向</string>
+    <string name="toast_unlocked">已解除锁定</string>
+    <string name="toast_need_permission">请先激活 Shizuku 或授予修改系统设置权限</string>
+    <string name="toast_failed">操作失败：%1$s</string>
+    <string name="toast_shizuku_not_installed">未检测到 Shizuku，请先安装并激活</string>
+    <string name="toast_permission_pending">无法申请授权，请检查 Shizuku 服务状态</string>
+    <string name="toast_no_settings_page">无法打开系统设置页</string>
+
+    <string name="hint_footer">提示：全局锁定在 Android 10 上需先激活 Shizuku（需电脑 ADB 或 root）。解锁会恢复你锁定前的自动旋转开关。卸载前请先解锁，避免方向设置残留。</string>
+</resources>

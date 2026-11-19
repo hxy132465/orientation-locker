@@ -38,4 +38,25 @@ Kotlin · AGP 8.6 · Gradle 8.9 · JDK 21 · Shizuku API 13.1.5 · 反射调用�
 
 ## 状态
 
-方案阶段（规划与技术栈已冻结），工程代码尚未开始实现。见 [PLAN.md](PLAN.md) 的 Wave 执行计划。
+**首版核心已完成并通过构建**（v1.0.0）：
+
+| Wave | 内容 | 状态 |
+|------|------|------|
+| 1 | Gradle 工程骨架、Shizuku 依赖与授权引导 | ✅ |
+| 2 | 核心锁定（反射 `freezeRotation`）+ 磁贴方向菜单 | ✅ |
+| 3 | WRITE_SETTINGS 降级 + 开机兜底 + 解锁精确恢复 | ✅ |
+| 4 | 构建产物：已签名 Release APK（2.5 MB） | ✅ |
+
+源码结构见下方；构建方式见 [BUILD.md](BUILD.md)。
+
+```
+app/src/main/java/com/orientationlocker/
+├── core/       Rotations / RotationController / FallbackController
+│               LockStateRepository / LockManager
+├── shizuku/    ShizukuHelper
+├── tile/       OrientationTileService
+├── boot/       BootRestoreReceiver
+└── ui/         MainActivity / OrientationPickerActivity
+```
+
+> 悬浮球（原 Wave 4）按决策移出首版，留待后续迭代。
