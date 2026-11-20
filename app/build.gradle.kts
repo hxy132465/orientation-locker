@@ -20,10 +20,8 @@ android {
         applicationId = "com.orientationlocker"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = 6
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -43,8 +41,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8：把 appcompat/core 等未使用代码与资源裁掉，包体与冷启动同时受益
+            isMinifyEnabled = true
+            isShrinkResources = true
             if (keystorePropsFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -71,7 +70,11 @@ android {
     packaging {
         resources.excludes += setOf(
             "META-INF/*.kotlin_module",
-            "META-INF/DEPENDENCIES"
+            "META-INF/DEPENDENCIES",
+            // 编译器内建描述文件：只有 kotlin-reflect 会读，本 App 不用
+            "kotlin/**",
+            "kotlin-tooling-metadata.json",
+            "META-INF/version-control-info.textproto"
         )
     }
 
@@ -84,8 +87,8 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    // 刻意不引入 androidx：界面用原生控件，通知用原生 Builder，
+    // 少一层 AppCompat 的启动开销与全部资源（APK 从 ~2.6 MB 降到 ~0.3 MB）
 
     // Shizuku：免 root 的系统服务调用
     implementation("dev.rikka.shizuku:api:13.1.5")

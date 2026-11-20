@@ -28,9 +28,10 @@
 | Shizuku API | `dev.rikka.shizuku:api:13.1.5` | 拿 binder、权限、远程调用（Maven Central 最新稳定版，已核实） |
 | Shizuku Provider | `dev.rikka.shizuku:provider:13.1.5` | 清单注册、权限声明 |
 | Shizuku App（用户侧）| v13.6.0 | 官方 GitHub 最新稳定版（2025-05），引导用户安装此版 |
-| AndroidX Core KTX | `androidx.core:core-ktx:1.13.x` | 基础扩展 |
-| AndroidX AppCompat | `androidx.appcompat:appcompat:1.7.x` | 兼容主题/Activity（可选，可最小化） |
-| 协程 | `org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.x` | 异步 binder 调用（可选，视实现） |
+| HiddenApiBypass | `org.lsposed.hiddenapibypass:hiddenapibypass:4.3` | 反射系统隐藏 API 的豁免（懒初始化） |
+| ~~AndroidX Core KTX~~ | 已移除 | 原生控件 + 原生 `Notification.Builder` 即可覆盖全部需求 |
+| ~~AndroidX AppCompat~~ | 已移除 | v1.1.0 起改用 `android:Theme.Material.*`，省下整包资源与初始化 |
+| ~~协程~~ | 未采用 | 单线程 `Executor` 足够，省一个依赖与运行时 |
 
 > Shizuku 版本说明（已核实）：API/Provider 库锁定 Maven Central 最新稳定版 13.1.5；用户侧 Shizuku App 引导安装官方 GitHub 最新稳定版 v13.6.0。两者版本体系不同，属正常。
 

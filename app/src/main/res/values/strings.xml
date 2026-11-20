@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">屏幕方向锁定</string>
-    <string name="app_subtitle">全局锁定设备屏幕方向 · 低占用 · 基于 Shizuku</string>
+    <string name="app_subtitle">全局锁定设备屏幕方向 · 低占用 · 免 root</string>
 
     <string name="tile_label">方向锁定</string>
 
@@ -20,7 +20,8 @@
     <string name="action_install_shizuku">安装 / 打开 Shizuku</string>
     <string name="action_request_shizuku">申请 Shizuku 授权</string>
     <string name="action_shizuku_ready">Shizuku 已就绪</string>
-    <string name="action_write_settings">授予「修改系统设置」权限（降级方案）</string>
+    <string name="action_write_settings">授予「修改系统设置」权限</string>
+    <string name="action_overlay_permission">授予「显示在其他应用上层」权限（免 Shizuku 方案）</string>
     <string name="action_unlock">解除锁定（恢复自动旋转）</string>
 
     <string name="section_quick_lock">快捷锁定</string>
@@ -29,23 +30,65 @@
     <string name="status_shizuku">Shizuku 服务：%1$s（版本 %2$s）</string>
     <string name="status_permission">Shizuku 授权：%1$s</string>
     <string name="status_write_settings">修改系统设置：%1$s</string>
+    <string name="status_overlay">显示在其他应用上层：%1$s</string>
     <string name="status_current">当前状态：%1$s</string>
+    <string name="status_loading">正在读取状态…</string>
     <string name="status_mode">生效路径：%1$s</string>
+    <string name="status_ignore_app">覆盖自带方向的 App：%1$s</string>
     <string name="status_locked">已锁定 · %1$s</string>
     <string name="status_unlocked">未锁定（自动旋转）</string>
 
-    <string name="mode_shizuku">Shizuku（系统级，可覆盖顽固 App）</string>
-    <string name="mode_fallback">系统设置降级</string>
+    <string name="mode_shizuku">Shizuku（系统级 · 已接管应用方向）</string>
+    <string name="mode_overlay">悬浮窗接管（免 Shizuku · 已接管应用方向）</string>
+    <string name="mode_fallback">系统设置（自带方向的 App 不受控）</string>
     <string name="mode_none">无可用路径</string>
+
+    <!-- 通知 -->
+    <string name="notif_channel">方向锁定状态</string>
+    <string name="notif_title">屏幕方向已锁定</string>
+    <string name="notif_text">当前：%1$s（点此可解除）</string>
 
     <!-- 提示 -->
     <string name="toast_locked">已锁定方向</string>
     <string name="toast_unlocked">已解除锁定</string>
-    <string name="toast_need_permission">请先激活 Shizuku 或授予修改系统设置权限</string>
+    <string name="toast_need_permission">请先激活 Shizuku，或授予「显示在其他应用上层」/「修改系统设置」权限</string>
     <string name="toast_failed">操作失败：%1$s</string>
     <string name="toast_shizuku_not_installed">未检测到 Shizuku，请先安装并激活</string>
     <string name="toast_permission_pending">无法申请授权，请检查 Shizuku 服务状态</string>
     <string name="toast_no_settings_page">无法打开系统设置页</string>
 
-    <string name="hint_footer">提示：全局锁定在 Android 10 上需先激活 Shizuku（需电脑 ADB 或 root）。解锁会恢复你锁定前的自动旋转开关。卸载前请先解锁，避免方向设置残留。</string>
+    <string name="hint_footer">三种生效方式，按能力从强到弱自动选择：① Shizuku（系统级，需电脑 ADB 或 root，不占常驻内存）；② 显示在其他应用上层（免 Shizuku，锁定期间会有一条静音通知保活，进程约 20–30 MB）；③ 修改系统设置（最轻，但压不住自己写死方向的 App）。解锁会恢复你锁定前的自动旋转开关。卸载前请先解锁，避免方向设置残留。</string>
+
+    <!-- v1.1.0 界面重构 -->
+    <string name="section_environment">运行环境</string>
+    <string name="row_shizuku">Shizuku 系统级</string>
+    <string name="row_overlay">悬浮窗接管</string>
+    <string name="row_settings">修改系统设置</string>
+
+    <string name="state_checking">检测中…</string>
+    <string name="state_granted">已授予</string>
+    <string name="state_not_granted">未授予</string>
+    <string name="state_shizuku_ok">已连接 · 已授权</string>
+    <string name="state_shizuku_no_perm">已连接 · 待授权</string>
+    <string name="state_shizuku_off">未连接</string>
+    <string name="state_overlay_ok">已授予 · 可覆盖顽固 App</string>
+    <string name="state_overlay_off">未授予 · 无法锁定</string>
+    <string name="state_settings_ok">已授予 · 基础降级</string>
+    <string name="state_settings_off">未授予</string>
+
+    <string name="action_open">去开启</string>
+    <string name="action_grant">授权</string>
+    <string name="action_install">安装</string>
+    <string name="action_ready">已就绪</string>
+
+    <string name="status_headline_locked">已锁定 · %1$s</string>
+    <string name="status_headline_unlocked">未锁定</string>
+    <string name="status_detail_cover">已接管应用自身方向，桌面与顽固 App 都跟随锁定</string>
+    <string name="status_detail_limited">仅跟随系统默认方向，自带方向的 App 不受控</string>
+    <string name="status_detail_idle">选择下方方向即可全局锁定，随时可解除</string>
+
+    <string name="chip_none">未生效</string>
+    <string name="chip_shizuku">Shizuku</string>
+    <string name="chip_overlay">悬浮窗</string>
+    <string name="chip_fallback">系统设置</string>
 </resources>

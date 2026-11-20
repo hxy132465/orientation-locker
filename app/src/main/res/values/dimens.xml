@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="page_padding_h">22dp</dimen>
+    <dimen name="page_padding_top">26dp</dimen>
+    <dimen name="page_padding_bottom">30dp</dimen>
+
+    <dimen name="card_radius">18dp</dimen>
+    <dimen name="row_radius">14dp</dimen>
+    <dimen name="tile_radius">16dp</dimen>
+
+    <dimen name="gap_section">26dp</dimen>
+    <dimen name="gap_item">10dp</dimen>
+</resources>

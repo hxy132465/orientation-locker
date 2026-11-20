@@ -52,6 +52,89 @@ object RotationController {
         }
     }
 
+    /**
+     * 是否支持「忽略应用自身方向声明」。
+     *
+     * 只做 freezeRotation 时，前台 Activity 若在 manifest 里写死
+     * `android:screenOrientation`（大量 App 的首页是 portrait、视频页是 landscape），
+     * WMS 会优先满足 Activity 的请求，桌面级方向锁被静默忽略——表现就是
+     * 「锁了横屏，进某个 App 又变回竖屏」。
+     *
+     * Android 10(Q) 起 WMS 提供了忽略入口：Q 上是 `setFixedToUserRotation(int)`，
+     * R+ 改名 `setIgnoreOrientationRequest(boolean)`。两者都需要系统权限，
+     * 只能经 Shizuku 调用。
+     */
+    fun supportsIgnoreAppOrientation(): Boolean = try {
+        val wm = obtainWindowManager() ?: return false
+        wm.javaClass.methods.any {
+            it.name == "setFixedToUserRotation" || it.name == "setIgnoreOrientationRequest"
+        }
+    } catch (t: Throwable) {
+        false
+    }
+
+    /**
+     * 开启/关闭「忽略应用自身方向声明」。
+     *
+     * @param enabled true 时系统只认 display 的固定方向，App 的 screenOrientation 失效
+     */
+    fun setIgnoreAppOrientation(enabled: Boolean): Result {
+        // 首选：直接反射调用（无进程开销）
+        val direct = trySetIgnoreDirect(enabled)
+        if (direct is Result.Success) return direct
+
+        // 回退：`setFixedToUserRotation` / `setIgnoreOrientationRequest` 在 WMS 里
+        // 带 MANAGE_APP_TOKENS 检查，而 shell 没有该签名权限；`wm` 命令是在
+        // system_server 进程内执行的，绕过 binder 权限校验。因此用 Shizuku 以
+        // shell 身份 fork 一个 `cmd window ...` 子进程，效果等同 `adb shell wm`。
+        return tryShellCommand(enabled).let { result ->
+            if (result is Result.Success) result else direct
+        }
+    }
+
+    private fun trySetIgnoreDirect(enabled: Boolean): Result {
+        return try {
+            val wm = obtainWindowManager() ?: return Result.Failure("无法获取 WindowManager 服务")
+
+            // Android 11+ : setIgnoreOrientationRequest(boolean)
+            val boolMethod = wm.javaClass.methods
+                .firstOrNull { it.name == "setIgnoreOrientationRequest" }
+            if (boolMethod != null) {
+                boolMethod.invoke(wm, *buildArgs(boolMethod.parameterTypes) { enabled })
+                return Result.Success
+            }
+
+            // Android 10 : setFixedToUserRotation(int)，1=ENABLED，0=DEFAULT
+            val intMethod = wm.javaClass.methods
+                .firstOrNull { it.name == "setFixedToUserRotation" }
+                ?: return Result.Failure("当前系统不支持忽略应用方向")
+            intMethod.invoke(wm, *buildArgs(intMethod.parameterTypes) { if (enabled) 1 else 0 })
+            Result.Success
+        } catch (t: Throwable) {
+            Result.Failure(describe(t), t)
+        }
+    }
+
+    private fun tryShellCommand(enabled: Boolean): Result {
+        return try {
+            val sub = if (android.os.Build.VERSION.SDK_INT >= 30) {
+                "set-ignore-orientation-request $enabled"
+            } else {
+                "set-fix-to-user-rotation ${if (enabled) "enabled" else "disabled"}"
+            }
+            val process = shizukuNewProcess(arrayOf("/system/bin/sh", "-c", "cmd window $sub"))
+            val code = process.waitFor()
+            if (code == 0) {
+                Result.Success
+            } else {
+                val err = process.errorStream.bufferedReader().use { it.readText() }.trim()
+                Result.Failure("cmd 退出码 $code${if (err.isEmpty()) "" else ": $err"}")
+            }
+        } catch (t: Throwable) {
+            Result.Failure(describe(t), t)
+        }
+    }
+
     /** 解除旋转锁，恢复系统自动旋转。 */
     fun thawRotation(): Result {
         return try {
@@ -71,7 +154,33 @@ object RotationController {
 
     // ---------- 内部实现 ----------
 
+    /**
+     * 隐藏 API 豁免，懒加载。
+     *
+     * `addHiddenApiExemptions` 会反序列化整张 ART 方法表，在模拟器上占约 11 MB
+     * native 堆。放在 Application.onCreate 里等于让每个用户——包括只用悬浮窗
+     * 或系统设置路径、根本不反射的用户——都白付这笔内存。这里改成首次真正
+     * 需要反射 IWindowManager 时才执行一次。
+     */
+    @Volatile
+    private var exemptionsReady = false
+
+    private fun ensureHiddenApiExemptions() {
+        if (exemptionsReady) return
+        exemptionsReady = true // 先置位：并发下最多重复一次，代价远小于加锁
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return
+        try {
+            org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions(
+                "Landroid/view/IWindowManager;",
+                "Landroid/view/IWindowManager\$Stub;"
+            )
+        } catch (t: Throwable) {
+            // 豁免失败不阻断：后续调用会走 try/catch 降级
+        }
+    }
+
     private fun obtainWindowManager(): Any? {
+        ensureHiddenApiExemptions()
         val binder: IBinder = SystemServiceHelper.getSystemService(WINDOW_SERVICE) ?: return null
         val wrapped = ShizukuBinderWrapper(binder)
         val stubClass = Class.forName("android.view.IWindowManager\$Stub")
@@ -93,6 +202,41 @@ object RotationController {
             else -> null
         }
     }.toTypedArray()
+
+    /**
+     * 通用参数填充：int 参数取 lambda 里的 Int，boolean 参数取 lambda 里的 Boolean，
+     * 其余补 null。
+     */
+    private inline fun buildArgs(
+        parameterTypes: Array<Class<*>>,
+        valueForIndex: (Int) -> Any
+    ): Array<Any?> = parameterTypes.mapIndexed { index, type ->
+        val value = valueForIndex(index)
+        when {
+            type == Int::class.javaPrimitiveType || type == Integer::class.java ->
+                (value as? Int) ?: 0
+            type == Boolean::class.javaPrimitiveType ->
+                (value as? Boolean) ?: false
+            else -> null
+        }
+    }.toTypedArray()
+
+    /**
+     * 以 Shizuku 的 shell 身份 fork 子进程。
+     *
+     * `Shizuku.newProcess` 在 13.x 被收成 private（仅供 rish 使用），这里用反射取回；
+     * 若不这么做，就只能自己写 UserService，代价高得多。
+     */
+    private fun shizukuNewProcess(cmd: Array<String>): Process {
+        val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod(
+            "newProcess",
+            Array<String>::class.java,
+            Array<String>::class.java,
+            String::class.java
+        )
+        method.isAccessible = true
+        return method.invoke(null, cmd, null, null) as Process
+    }
 
     private fun describe(t: Throwable): String {
         val root = generateSequence(t) { it.cause }.last()

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- 仅 debug 构建：模拟"自己声明了竖屏"的顽固 App，用于验证方向锁覆盖率 -->
+        <activity
+            android:name=".debug.PortraitActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:label="Portrait Stubborn" />
+    </application>
+</manifest>

@@ -25,6 +25,32 @@ object ShizukuHelper {
         false
     }
 
+    /** Shizuku 状态快照：一次采集，避免 UI 逐项查询造成多次 binder 往返。 */
+    data class Status(val alive: Boolean, val ready: Boolean, val version: String)
+
+    /**
+     * 一次性读取 Shizuku 的存活、授权与版本。
+     *
+     * 原来 UI 依次调用 isBinderAlive / hasPermission / serverVersion，每项内部
+     * 都会 `pingBinder()` 一次（共 4 次 binder 往返）。合并在后台线程一次采集，
+     * 有 Shizuku 时可省下数毫秒。
+     */
+    fun snapshot(): Status {
+        val alive = isBinderAlive()
+        if (!alive) return Status(alive = false, ready = false, version = "—")
+        val ready = try {
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        } catch (t: Throwable) {
+            false
+        }
+        val version = try {
+            "${Shizuku.getVersion()}"
+        } catch (t: Throwable) {
+            "—"
+        }
+        return Status(alive = true, ready = ready, version = version)
+    }
+
     /** 是否已获得 Shizuku 授权。 */
     fun hasPermission(): Boolean = try {
         isBinderAlive() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED

@@ -7,7 +7,8 @@ import android.content.SharedPreferences
  * 锁定状态仓库。只保存极少量标量，读写开销可忽略，符合"低占用"目标。
  *
  * 注意：这里只记录"用户意图"，真正的系统状态由 `IWindowManager.freezeRotation`
- * 或系统设置持有。因此即使进程被杀，锁定依然生效。
+ * 或系统设置持有。进程被杀后方向是否保持取决于系统侧（实测 Android 10 上会丢失，
+ * 见 TEST_REPORT 第七节），因此不能假设"杀进程不影响"。
  */
 class LockStateRepository(context: Context) {
 
@@ -55,6 +56,16 @@ class LockStateRepository(context: Context) {
         get() = prefs.getLong(KEY_LAST_APPLIED, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_APPLIED, value).apply()
 
+    /**
+     * 是否已开启「忽略应用自身方向声明」。
+     *
+     * 只有开了这个，manifest 里写死 `screenOrientation` 的 App 才会被强制跟随锁定方向；
+     * 降级路径无法开启，所以降级模式下这类 App 依然会按自己的方向显示。
+     */
+    var ignoreAppOrientation: Boolean
+        get() = prefs.getBoolean(KEY_IGNORE_APP_ORIENTATION, false)
+        set(value) = prefs.edit().putBoolean(KEY_IGNORE_APP_ORIENTATION, value).apply()
+
     val isLocked: Boolean
         get() = Rotations.isLocked(lockedRotation)
 
@@ -63,6 +74,7 @@ class LockStateRepository(context: Context) {
         prefs.edit()
             .putInt(KEY_LOCKED_ROTATION, Rotations.AUTO)
             .putString(KEY_ACTIVE_MODE, Mode.NONE.name)
+            .putBoolean(KEY_IGNORE_APP_ORIENTATION, false)
             .apply()
     }
 
@@ -80,6 +92,9 @@ class LockStateRepository(context: Context) {
         /** 通过 Shizuku 的 freezeRotation 生效 */
         SHIZUKU,
 
+        /** 通过 1×1 悬浮窗的 screenOrientation 生效（无需 Shizuku，可覆盖写死方向的 App） */
+        OVERLAY,
+
         /** 通过 WRITE_SETTINGS 降级生效 */
         FALLBACK
     }
@@ -92,5 +107,6 @@ class LockStateRepository(context: Context) {
         const val KEY_ORIGINAL_AUTO_ROTATE = "original_auto_rotate"
         const val KEY_ORIGINAL_USER_ROTATION = "original_user_rotation"
         const val KEY_LAST_APPLIED = "last_applied_at"
+        const val KEY_IGNORE_APP_ORIENTATION = "ignore_app_orientation"
     }
 }
