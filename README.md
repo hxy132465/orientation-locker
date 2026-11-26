@@ -40,6 +40,18 @@
 
 动效全部原生实现（`ViewPropertyAnimator` / `ObjectAnimator`），无第三方库；仅在前台运行，`onPause` 即停，不额外耗电。
 
+## 输入法对照（横屏锁定下键盘正常）
+
+针对「输入法卡掉一半」的反馈，用严格 `screenOrientation="portrait"` 的测试 App（`docs/portrait-probe.apk`）做了三组对照，键盘均正常撑满屏宽：
+
+<p>
+  <img src="docs/screenshots/ime-baseline.png" width="200" align="top" />
+  <img src="docs/screenshots/ime-locked-portrait.png" width="330" align="top" />
+  <img src="docs/screenshots/ime-locked-settings.png" width="330" align="top" />
+</p>
+
+左：竖屏基线；中：横屏锁定 + 仅竖屏 App；右：横屏锁定 + 设置 App 搜索框。横屏输入本就是「上半屏提取文字 + 下半屏键盘」的全屏模式，详见 `TEST_REPORT.md` 第十二章。
+
 ## 技术栈
 
 Kotlin · AGP 8.6 · Gradle 8.9 · JDK 21 · Shizuku API 13.1.5 · 反射调用隐藏 API · SharedPreferences
@@ -87,9 +99,9 @@ Kotlin · AGP 8.6 · Gradle 8.9 · JDK 21 · Shizuku API 13.1.5 · 反射调用�
 1. Android 10 激活 Shizuku 需 **ADB 电脑授权或 root**（无线调试激活是 Android 11+ 特性）。
 2. 部分国产 ROM 可能重置 `freezeRotation` 状态，需真机验证 + 开机兜底。
 3. 系统设置持久，卸载/解锁前务必 `thawRotation` 并恢复用户原值。
-4. **letterbox 与输入法半屏**：锁定后屏幕方向不再被 App 抢走，但声明了 `android:screenOrientation` 的 App 仍按自己声明的方向排版，显示成屏幕中央的竖条/横条（留黑边）。**输入法也会按这个兼容窗口的尺寸绘制**，于是横屏锁定时键盘可能只占下半屏、或缩在屏幕一侧，看起来像"卡掉一半"。这是 WMS 的兼容模式，从本 App 无法修复；同类 App（如 Rotation）同样存在。
-   - **Android 11+ 且启用 Shizuku** 时本 App 会调用 `setIgnoreOrientationRequest(true)` 让系统忽略 App 的方向声明，通常能消除该现象；Android 10 的 `setFixedToUserRotation` 不具备这个能力。
-   - 临时应对：磁贴 → 「自动旋转」解除锁定，输入完再锁回。
+4. **letterbox（黑边）**：锁定后屏幕方向不再被 App 抢走，但个别在 manifest 里写死 `android:screenOrientation` 的 App 仍可能按自己声明的方向排版，显示成屏幕中央的竖条/横条并留黑边。这是 WMS 的兼容模式，非 root 无法让这类 App 的内容铺满；同类 App（如 Rotation）同样存在。
+   - **输入法键盘实测正常**：用专门的「仅竖屏」测试 App（`screenOrientation="portrait"`，见 `portrait-probe.apk`）在横屏锁定下弹键盘，键盘撑满屏宽、处于全屏输入模式，与竖屏基线一致；同一状态下「设置」App 搜索框也正常。横屏输入本身就是"上半屏提取文字 + 下半屏键盘"的全屏模式，不是"卡掉一半"。若个别机型/第三方输入法仍有异常，多为 ROM 或输入法自身行为，临时可磁贴 →「自动旋转」解锁后再输入。
+   - **Android 11+ 且启用 Shizuku** 时本 App 会调用 `setIgnoreOrientationRequest(true)` 让系统忽略 App 的方向声明，可进一步消除黑边；Android 10 的 `setFixedToUserRotation` 不具备这个能力。
 5. **悬浮窗路径依赖进程存活**：窗口随进程消失，所以锁定期间必须有一个前台服务保活（这就是它比 Shizuku 路径多占约 25 MB 的原因）。进程被强杀后系统会按 `START_STICKY` 重启并重建窗口（实测有效），但若系统把应用判为 idle 而拒绝重启服务，锁定会失效——重新打开 App 即自愈。Shizuku 路径无此问题，因为状态由 system_server 持有。
 
 ## 状态

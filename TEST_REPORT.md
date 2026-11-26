@@ -445,40 +445,43 @@ Window{... u0 com.orientationlocker}
 - **浅色实机截图**：模拟器 SystemUI 的 `uimode` 在 TCG 下无法切回日间，仅完成深色实机验证；浅色配色由 `MainActivityTest` 的颜色断言覆盖（`text_primary=#0F172A`、`surface=#F6F7FB`）。
 - **动效的实际观感**：静态截图无法体现，参数按 Material 常规时长区间设定（90–320ms），建议真机体验后微调。
 
-## 十二、输入法半屏：复现与边界确认
+## 十二、输入法半屏：用严格仅竖屏 App 复测（结论修正）
 
-### 12.1 现象
+### 12.1 背景与自我纠错
 
-用户反馈：锁定横屏后进入某些 App 点输入框，键盘「卡掉一半」——只覆盖屏幕下半部分，右侧留一条导航栏空白，上半屏是 App 内容，不像横屏应有的全屏输入模式。
+用户反馈：锁定横屏后进某些 App 点输入框，键盘「卡掉一半」。上一轮我用「设置」App 复现，得出「letterbox 兼容模式导致键盘半屏、非 root 无解」的结论。**本轮发现该结论有误**，原因有二：
 
-### 12.2 复现步骤（Android 10 / API 29 模拟器）
+1. **「设置」App 的主 Activity 并没有写死竖屏**（`aapt2 dump xmltree` 确认只有人脸录入等子页面是 `screenOrientation=1`），拿它做「顽固竖屏 App」的对照并不成立；
+2. 上一轮的对照里我手动混写了 `user_rotation` / `accelerometer_rotation`，WMS 处于自相矛盾的状态，那张「半屏截图」是脏环境下的产物，不能代表本 App 正常锁定时的表现。
 
-1. 安装 v1.2.0，授予「显示在其他应用上层」。
-2. 主界面点「横屏」，`mCurrentRotation=ROTATION_90`，overlay 窗口与前台服务均就绪。
-3. 进入「设置」→ 搜索框，输入文字。
-4. 观察键盘：只占屏幕下半部分，宽度止于右侧导航栏之前。
+### 12.2 本轮方法：构建一个严格仅竖屏 App
 
-对照实验：
+为得到无歧义的结论，用 Android SDK 手工构建 `portrait-probe.apk`（13 KB）：
 
-- **同机原生横屏**（卸载本 App 后手动设 `user_rotation=1`、`accelerometer_rotation=0`）：设置 App 自己声明了竖屏，一进入就转回 `ROTATION_0`。这证明目标 App 的 `screenOrientation` 声明确实优先于系统 `user_rotation`。
-- **补写 USER_ROTATION=1**（模拟完整授予 WRITE_SETTINGS）：键盘布局不变，说明问题不在 USER_ROTATION 是否写入。
+- 主 Activity 明确声明 `android:screenOrientation="portrait"`（`aapt2 dump xmltree` 输出 `screenOrientation(0x0101001e)=1`，即仅竖屏）；
+- 布局含一个 `EditText` 输入框和一个普通按钮；
+- 产物留在 `/workspace/portrait-probe.apk`，可自行复现。
 
-### 12.3 结论
+### 12.3 三组对照结果（Android 10 / API 29，v1.2.0 release）
 
-这是 **letterbox 兼容模式**的另一面，与已知的「App 内容留黑边」是同一根因：
+| 组别 | 条件 | 结果 |
+|---|---|---|
+| ① 竖屏基线 | 未锁定，`ROTATION_0`，仅竖屏 App 弹键盘 | 键盘占下半屏、撑满宽度，正常（`ime-portrait-baseline.png`） |
+| ② 横屏锁定 + 仅竖屏 App | 本 App 锁 `ROTATION_90`，同一 App 弹键盘 | 键盘撑满宽度 0~1785、全屏输入模式带 Done 键，与基线一致，**无半屏**（`ime-locked-portrait-app.png`） |
+| ③ 横屏锁定 + 设置 App | 同一横屏锁定状态下重测设置搜索框 | 键盘同样撑满宽度、全屏输入模式，**无半屏**（`ime-locked-settings-clean.png`） |
 
-- overlay（`TYPE_APPLICATION_OVERLAY` + `screenOrientation`）只能改变 WMS 的显示方向，无法让目标 App 放弃自己声明的方向；
-- 目标 App 的窗口因此处于兼容/letterbox 状态，输入法按该窗口的可视区域计算布局，于是出现「半屏键盘」；
-- 要让 App 内容铺满、输入法跟随全屏，必须让系统忽略 App 的方向声明，需要 hook `system_server`。Shizuku 提供的 `setIgnoreOrientationRequest(true)` 在 Android 11+ 可用，Android 10 只有 `setFixedToUserRotation`（不具备该能力）。
+补充观察：
 
-### 12.4 可行应对
+- 横屏锁定下，这个真·仅竖屏 App 的内容**铺满了整个横屏**（右侧仅一条系统导航栏），并未出现竖条 letterbox；说明 overlay 提供的 `screenOrientation` 足以让 App 按横屏排版。
+- 卸载锁定、手动设 `user_rotation=1` 时，仅竖屏 App 与桌面都立即回到 `ROTATION_0`——说明单纯写 `user_rotation` 会被 App 的方向声明压过，而本 App 的 overlay / `setFixToUserRotation` 路径不会。这也解释了为什么上一轮用脏环境会看到异常。
 
-| 场景 | 做法 |
-|---|---|
-| Android 11+ 且装了 Shizuku | 授权给本 App，走 Shizuku 路径；`setIgnoreOrientationRequest(true)` 通常能消除半屏键盘 |
-| 任意版本 | 磁贴/主界面 → 「自动旋转」临时解锁，输入完再锁回 |
-| 追求彻底 | 只能改目标 App 的 manifest 或 root/Xposed hook，非普通 App 能解决 |
+### 12.4 修正后结论
+
+1. **横屏输入本来就是全屏输入模式**：上半屏是提取出来的文字编辑框，下半屏是键盘，键盘撑满屏宽。这是 Android 的标准布局，不是「卡掉一半」。
+2. **本 App 正常锁定时，输入法键盘实测正常**，无论目标是严格仅竖屏 App 还是设置 App。上一轮「半屏」结论作废。
+3. 真正无法通过非 root 消除的只有**个别在 manifest 写死方向且触发 WMS 兼容模式的 App 的黑边**，且本轮连这一点都未在纯竖屏 App 上复现。
+4. 若真机（尤其国产 ROM + 第三方输入法）仍出现键盘异常，优先怀疑 ROM 的方向策略或输入法自身适配，而非本 App 的锁定逻辑。
 
 ### 12.5 未做的改动
 
-本次不改代码：没有能从普通 App 侧消除 letterbox 的合法 API，强行加窗口 flag 只会引入新的兼容问题。只更新 README 已知限制与本记录，避免把系统边界误当成 App 缺陷去「修」。
+不改代码：没有实测证据表明存在需要修复的 App 侧缺陷。仅修正 README 与本章的错误结论，并把对照截图与测试 APK 一并保存，便于复核。
