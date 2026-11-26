@@ -444,3 +444,41 @@ Window{... u0 com.orientationlocker}
 
 - **浅色实机截图**：模拟器 SystemUI 的 `uimode` 在 TCG 下无法切回日间，仅完成深色实机验证；浅色配色由 `MainActivityTest` 的颜色断言覆盖（`text_primary=#0F172A`、`surface=#F6F7FB`）。
 - **动效的实际观感**：静态截图无法体现，参数按 Material 常规时长区间设定（90–320ms），建议真机体验后微调。
+
+## 十二、输入法半屏：复现与边界确认
+
+### 12.1 现象
+
+用户反馈：锁定横屏后进入某些 App 点输入框，键盘「卡掉一半」——只覆盖屏幕下半部分，右侧留一条导航栏空白，上半屏是 App 内容，不像横屏应有的全屏输入模式。
+
+### 12.2 复现步骤（Android 10 / API 29 模拟器）
+
+1. 安装 v1.2.0，授予「显示在其他应用上层」。
+2. 主界面点「横屏」，`mCurrentRotation=ROTATION_90`，overlay 窗口与前台服务均就绪。
+3. 进入「设置」→ 搜索框，输入文字。
+4. 观察键盘：只占屏幕下半部分，宽度止于右侧导航栏之前。
+
+对照实验：
+
+- **同机原生横屏**（卸载本 App 后手动设 `user_rotation=1`、`accelerometer_rotation=0`）：设置 App 自己声明了竖屏，一进入就转回 `ROTATION_0`。这证明目标 App 的 `screenOrientation` 声明确实优先于系统 `user_rotation`。
+- **补写 USER_ROTATION=1**（模拟完整授予 WRITE_SETTINGS）：键盘布局不变，说明问题不在 USER_ROTATION 是否写入。
+
+### 12.3 结论
+
+这是 **letterbox 兼容模式**的另一面，与已知的「App 内容留黑边」是同一根因：
+
+- overlay（`TYPE_APPLICATION_OVERLAY` + `screenOrientation`）只能改变 WMS 的显示方向，无法让目标 App 放弃自己声明的方向；
+- 目标 App 的窗口因此处于兼容/letterbox 状态，输入法按该窗口的可视区域计算布局，于是出现「半屏键盘」；
+- 要让 App 内容铺满、输入法跟随全屏，必须让系统忽略 App 的方向声明，需要 hook `system_server`。Shizuku 提供的 `setIgnoreOrientationRequest(true)` 在 Android 11+ 可用，Android 10 只有 `setFixedToUserRotation`（不具备该能力）。
+
+### 12.4 可行应对
+
+| 场景 | 做法 |
+|---|---|
+| Android 11+ 且装了 Shizuku | 授权给本 App，走 Shizuku 路径；`setIgnoreOrientationRequest(true)` 通常能消除半屏键盘 |
+| 任意版本 | 磁贴/主界面 → 「自动旋转」临时解锁，输入完再锁回 |
+| 追求彻底 | 只能改目标 App 的 manifest 或 root/Xposed hook，非普通 App 能解决 |
+
+### 12.5 未做的改动
+
+本次不改代码：没有能从普通 App 侧消除 letterbox 的合法 API，强行加窗口 flag 只会引入新的兼容问题。只更新 README 已知限制与本记录，避免把系统边界误当成 App 缺陷去「修」。

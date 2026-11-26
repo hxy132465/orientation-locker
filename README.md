@@ -87,7 +87,9 @@ Kotlin · AGP 8.6 · Gradle 8.9 · JDK 21 · Shizuku API 13.1.5 · 反射调用�
 1. Android 10 激活 Shizuku 需 **ADB 电脑授权或 root**（无线调试激活是 Android 11+ 特性）。
 2. 部分国产 ROM 可能重置 `freezeRotation` 状态，需真机验证 + 开机兜底。
 3. 系统设置持久，卸载/解锁前务必 `thawRotation` 并恢复用户原值。
-4. **letterbox**：锁定后屏幕方向不再被 App 抢走，但声明了 `android:screenOrientation` 的 App 仍按自己的方向排版，会显示成屏幕中央的竖条/横条（留黑边）。要让其内容铺满需要 hook system_server，Shizuku 权限不够——这对任何非 root 方案都成立（含 Rotation 这类同类 App）。
+4. **letterbox 与输入法半屏**：锁定后屏幕方向不再被 App 抢走，但声明了 `android:screenOrientation` 的 App 仍按自己声明的方向排版，显示成屏幕中央的竖条/横条（留黑边）。**输入法也会按这个兼容窗口的尺寸绘制**，于是横屏锁定时键盘可能只占下半屏、或缩在屏幕一侧，看起来像"卡掉一半"。这是 WMS 的兼容模式，从本 App 无法修复；同类 App（如 Rotation）同样存在。
+   - **Android 11+ 且启用 Shizuku** 时本 App 会调用 `setIgnoreOrientationRequest(true)` 让系统忽略 App 的方向声明，通常能消除该现象；Android 10 的 `setFixedToUserRotation` 不具备这个能力。
+   - 临时应对：磁贴 → 「自动旋转」解除锁定，输入完再锁回。
 5. **悬浮窗路径依赖进程存活**：窗口随进程消失，所以锁定期间必须有一个前台服务保活（这就是它比 Shizuku 路径多占约 25 MB 的原因）。进程被强杀后系统会按 `START_STICKY` 重启并重建窗口（实测有效），但若系统把应用判为 idle 而拒绝重启服务，锁定会失效——重新打开 App 即自愈。Shizuku 路径无此问题，因为状态由 system_server 持有。
 
 ## 状态
